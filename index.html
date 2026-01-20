@@ -5,16 +5,37 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Puzzle</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; display: grid; place-items: center; }
-    .wrap { max-width: 520px; width: 100%; text-align: center; }
-    canvas { width: 100%; height: auto; border: 1px solid #ddd; border-radius: 12px; touch-action: manipulation; }
-    button { margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin:0; padding:24px;
+      display:grid; place-items:center;
+      background:#fff;
+    }
+    .wrap{ max-width: 520px; width:100%; text-align:center; }
+    canvas{
+      width:100%; height:auto;
+      border:1px solid #ddd;
+      border-radius:16px;
+      touch-action: manipulation;
+      background:#dfead6; /* fondo similar a tu captura */
+    }
+    button{
+      margin-top:12px;
+      padding:10px 14px;
+      border-radius:10px;
+      border:1px solid #ddd;
+      background:#fff;
+      cursor:pointer;
+    }
+    p{ margin-top:10px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h2>ola amor, hice este jueguito para que te distraigas mientras stoi en el sielo, te amo <3  🧩</h2>
+    <h2>ola amor, hice este jueguito para que te distraigas mientras stoi en el sielo, te amo &lt;3 🧩</h2>
+
     <canvas id="c" width="400" height="400"></canvas>
+
     <div><button id="shuffle">Mezclar</button></div>
     <p style="opacity:.7;font-size:14px">Tip: clic en una pieza junto al espacio vacío.</p>
   </div>
@@ -23,52 +44,82 @@
     const N = 4; // 4x4
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
+
     const img = new Image();
+    // anti-cache para que siempre tome la imagen más reciente
     img.src = 'puzzle2.jpg?v=' + Date.now();
 
-
     let tileSize = canvas.width / N;
-    let board = []; // 0..15 (15 será vacío)
-    const EMPTY = N*N - 1;
+    let board = [];
+    const EMPTY = N * N - 1;
+
+    // Canvas oculto: aquí dejamos la imagen ya "encajada" (contain) en 400x400
+    const srcCanvas = document.createElement('canvas');
+    const sctx = srcCanvas.getContext('2d');
 
     function solvedBoard() {
-      return Array.from({length: N*N}, (_, i) => i);
+      return Array.from({ length: N * N }, (_, i) => i);
     }
 
     function findEmpty() {
       return board.indexOf(EMPTY);
     }
 
-    function rc(i){ return [Math.floor(i / N), i % N]; }
+    function rc(i) { return [Math.floor(i / N), i % N]; }
 
-    function neighbors(i){
-      const [r,c] = rc(i);
+    function neighbors(i) {
+      const [r, c] = rc(i);
       const nb = [];
-      if (r>0) nb.push(i-N);
-      if (r<N-1) nb.push(i+N);
-      if (c>0) nb.push(i-1);
-      if (c<N-1) nb.push(i+1);
+      if (r > 0) nb.push(i - N);
+      if (r < N - 1) nb.push(i + N);
+      if (c > 0) nb.push(i - 1);
+      if (c < N - 1) nb.push(i + 1);
       return nb;
     }
 
+    function prepareSource() {
+      // Encajamos la imagen completa dentro del cuadrado (sin recorte)
+      srcCanvas.width = canvas.width;
+      srcCanvas.height = canvas.height;
+
+      sctx.clearRect(0, 0, srcCanvas.width, srcCanvas.height);
+
+      const scale = Math.min(srcCanvas.width / img.width, srcCanvas.height / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const offX = (srcCanvas.width - drawW) / 2;
+      const offY = (srcCanvas.height - drawH) / 2;
+
+      // Fondo "verde clarito" como en tu captura
+      sctx.fillStyle = '#dfead6';
+      sctx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
+
+      sctx.drawImage(img, offX, offY, drawW, drawH);
+    }
+
     function draw() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      for (let i=0;i<board.length;i++){
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < board.length; i++) {
         const val = board[i];
         if (val === EMPTY) continue;
 
         const [dr, dc] = rc(i);
         const [sr, sc] = rc(val);
 
+        // Cortamos piezas desde el srcCanvas (ya tiene la imagen completa "contain")
+        const sx = sc * tileSize;
+        const sy = sr * tileSize;
+
         ctx.drawImage(
-          img,
-          sc*tileSize, sr*tileSize, tileSize, tileSize,
-          dc*tileSize, dr*tileSize, tileSize, tileSize
+          srcCanvas,
+          sx, sy, tileSize, tileSize,
+          dc * tileSize, dr * tileSize, tileSize, tileSize
         );
       }
     }
 
-    function move(i){
+    function move(i) {
       const e = findEmpty();
       if (!neighbors(e).includes(i)) return false;
       [board[e], board[i]] = [board[i], board[e]];
@@ -76,43 +127,43 @@
       return true;
     }
 
-    function shuffle(steps=200){
-      for (let k=0;k<steps;k++){
+    function shuffle(steps = 200) {
+      for (let k = 0; k < steps; k++) {
         const e = findEmpty();
         const nb = neighbors(e);
-        const pick = nb[Math.floor(Math.random()*nb.length)];
+        const pick = nb[Math.floor(Math.random() * nb.length)];
         [board[e], board[pick]] = [board[pick], board[e]];
       }
       draw();
     }
 
-    function onClick(evt){
+    function onClick(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = (evt.clientX - rect.left) * (canvas.width / rect.width);
       const y = (evt.clientY - rect.top) * (canvas.height / rect.height);
       const c = Math.floor(x / tileSize);
       const r = Math.floor(y / tileSize);
-      const i = r*N + c;
-      if (move(i) && board.every((v,idx)=>v===idx)) {
-        setTimeout(()=>alert('¡Lo lograste! 🎉'), 50);
+      const i = r * N + c;
+
+      if (move(i) && board.every((v, idx) => v === idx)) {
+        setTimeout(() => alert('¡Lo lograste! 🎉'), 50);
       }
     }
 
     canvas.addEventListener('click', onClick);
-    document.getElementById('shuffle').addEventListener('click', ()=>shuffle());
+    document.getElementById('shuffle').addEventListener('click', () => shuffle());
 
     img.onload = () => {
+      tileSize = canvas.width / N;
       board = solvedBoard();
+      prepareSource();
       shuffle();
     };
+
     img.onerror = () => {
-      document.querySelector('p').textContent = 'No se pudo cargar puzzle.jpg. Revisa que el archivo se llame exactamente puzzle.jpg.';
+      document.querySelector('p').textContent =
+        'No se pudo cargar puzzle2.jpg. Revisa que el archivo exista y el nombre sea exacto.';
     };
   </script>
 </body>
 </html>
-
-
-
-
-
